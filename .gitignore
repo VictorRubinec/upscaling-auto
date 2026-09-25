@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+venv/
+.venv/
+env/
+.env
+
+# Playwright & Browser Sessions / Cache
+data/browser_profile/*
+!data/browser_profile/.gitkeep
+
+# Logs
+data/logs/*
+!data/logs/.gitkeep
+
+# Data input & output images (preserva a estrutura de pastas)
+data/input/*/*
+!data/input/*/.gitkeep
+data/output/*/*
+!data/output/*/.gitkeep
+
+# OS / Editor files
+Thumbs.db
+.DS_Store
+.idea/
+.vscode/
+*.swp

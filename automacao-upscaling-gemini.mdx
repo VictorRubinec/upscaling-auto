@@ -1,0 +1,70 @@
+---
+title: "Automação de Upscaling de Imagens via Gemini Web"
+category: "studio-kustom"
+tags: ["rpa", "playwright", "python", "upscaling", "ia", "personalizados", "impressao-300dpi"]
+createdAt: "2026-09-24"
+updatedAt: "2026-09-24"
+status: "ativo"
+---
+
+import { Timeline } from '../components/Timeline.jsx';
+import { Badge } from '../components/Badge.jsx';
+import { Callout } from '../components/Callout.jsx';
+import { LinkCard } from '../components/LinkCard.jsx';
+
+# Automação de Upscaling de Imagens via Gemini Web (Studio Kustom)
+
+<Badge label="Studio Kustom" type="projeto" />
+<Badge label="RPA & Automação" type="trabalho" />
+<Badge label="Status: Ativo" type="info" />
+
+## Visão Geral & Resumo
+
+Arquitetura e desenvolvimento de robô RPA em Python com Playwright para otimização e upscaling em lote de artes e imagens de baixa resolução enviadas por clientes. O objetivo é automatizar a preparação de arquivos para impressão de alta qualidade (300 DPI) nos formatos A4, A3, canecas, polaroids e trading cards da Studio Kustom.
+
+```mermaid
+flowchart LR
+    A["Pasta de Entrada (Input)"] --> B["Validador e Rastreador"]
+    B --> C["Sessão Persistente Playwright"]
+    C --> D["Gemini Pro Web (Upload + Prompt Especializado)"]
+    D --> E["Download Alta Resolução"]
+    E --> F["Pasta de Saída (Output 300 DPI)"]
+```
+
+---
+
+## Estrutura de Perfis e Prompts Técnicos
+
+A automação é desacoplada por perfil de produto com especificações dimensionais e diretrizes para a IA:
+
+| Perfil de Produto | Dimensões Finais | Foco do Prompt de IA |
+| :--- | :--- | :--- |
+| **`POSTER_A4`** | 210 x 297 mm (Vertical/Horizontal) | Fidelidade de cores, preservação de traços e nitidez sem artefatos. |
+| **`POSTER_A3`** | 297 x 420 mm | Super-resolução com microdetalhes, eliminação de ruído e suavização de gradientes. |
+| **`TRADING_CARD`** | 63.5 x 88.9 mm | Nitidez extrema de tipografia, bordas vetoriais e contraste de elementos visuais. |
+| **`POLAROID`** | 88 x 107 mm | Preservação de textura fotográfica, correção suave de granulado. |
+| **`MUG` (Caneca)** | 200 x 95 mm (Panorâmica) | Preservação de proporção 2:1 sem estiramento ou distorções no centro/bordas. |
+
+<Callout title="Idempotência & Resiliência" type="info">
+O robô mantém controle de arquivos já processados via hash/nome no diretório de saída e executa limpeza de contexto a cada lote para evitar poluição de memória no chat web do Gemini.
+</Callout>
+
+---
+
+## Linha do Tempo (Atualizações Cronológicas)
+
+<Timeline items={[
+  {
+    date: "2026-09-24",
+    title: "Arquitetura e Desenvolvimento Inicial",
+    content: "Definição do motor de automação Playwright com sessão persistente (User Data Dir), modelos de tipos com Enum e Pydantic, e prompts específicos para cada perfil de produto de personalizados físicos.",
+    status: "Concluído"
+  }
+]} />
+
+---
+
+## 🔗 Assuntos Relacionados
+
+- [`Monitor de Uptime`](../projetos/monitor-uptime-status.mdx) — Arquitetura de observabilidade e logs de automações.
+- [`FontScout (Automação de Fontes)`](../projetos/automacao-busca-download-fontes.mdx) — Scripts Python para pipeline de design e tipografia.
