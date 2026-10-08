@@ -55,8 +55,11 @@ class GeminiSelectors:
 
     # Indicadores visuais de que o Gemini está processando/gerando resposta
     GENERATING_INDICATOR = (
-        "div.sparkle-container, "
+        "button[aria-label*='Stop' i], "
+        "button[aria-label*='Interromper' i], "
+        "button[aria-label*='Parar' i], "
         "mat-progress-bar, "
+        "[role='progressbar'], "
         "[data-test-id='generating-state'], "
         ".loading-indicator, "
         "div[aria-label*='Gerando' i], "
@@ -77,12 +80,17 @@ class GeminiSelectors:
 
     # Botão para download da imagem em tamanho completo
     DOWNLOAD_BUTTON = (
-        "button[aria-label*='Fazer o download' i], "
-        "button[aria-label*='Download' i], "
-        "button[aria-label*='tamanho original' i], "
+        "[data-test-id='image-download-button'] button, "
+        "gem-icon-button[data-test-id='image-download-button'] button, "
+        "gem-icon-button[data-test-id='image-download-button'], "
+        "button[aria-label*='Baixar imagem' i], "
+        "button[aria-label*='download' i], "
         "button[aria-label*='Baixar' i], "
-        "a[download], "
-        "button:has(mat-icon:has-text('download'))"
+        "button[aria-label*='Fazer o download' i], "
+        "button[aria-label*='tamanho original' i], "
+        "button:has(mat-icon[fonticon='download']), "
+        "button:has(mat-icon[data-mat-icon-name='download']), "
+        "a[download]"
     )
 
     # Botão de início de novo chat
@@ -95,6 +103,31 @@ class GeminiSelectors:
         "a:has-text('Novo chat')"
     )
 
+    # Elementos de miniatura/anexo no campo de input antes do envio
+    ATTACHMENT_PREVIEW = (
+        "rich-textarea img, "
+        ".attachment-container, "
+        "attachment-preview, "
+        "[data-test-id='attachment-container'], "
+        "[data-test-id='attachment-thumbnail'], "
+        ".image-preview, "
+        ".image-preview-container, "
+        "div.preview-container, "
+        "button[aria-label*='Remover' i], "
+        "button[aria-label*='Remove' i], "
+        "mat-chip, "
+        "div[role='region'][aria-label*='imagem' i], "
+        "div[role='region'][aria-label*='image' i]"
+    )
+
+    # Bloco da mensagem enviada pelo usuário
+    USER_QUERY = (
+        "user-query, "
+        ".user-query, "
+        "[data-test-id='user-query'], "
+        "div.user-query-container"
+    )
+
     # Botões para fechar eventuais modais/popups de avisos
     MODAL_DISMISS_BUTTON = (
         "button[aria-label*='Fechar' i], "
@@ -105,3 +138,4 @@ class GeminiSelectors:
         "button:has-text('Continuar'), "
         "button:has-text('Aceitar')"
     )
+

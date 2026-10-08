@@ -16,6 +16,10 @@ data/browser_profile/*
 data/logs/*
 !data/logs/.gitkeep
 
+# Temp downloads
+data/temp_downloads/*
+!data/temp_downloads/.gitkeep
+
 # Data input & output images (preserva a estrutura de pastas)
 data/input/*/*
 !data/input/*/.gitkeep
