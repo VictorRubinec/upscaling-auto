@@ -166,6 +166,11 @@ class ProductProfile(BaseModel):
                 target_dimensions_mm=eff_mm
             )
 
+        if self.product_type == ProductType.MUG:
+            from src.mug import MugPromptBuilder
+            prompt = MugPromptBuilder.build_prompt_for_image(image_path=image_path, logger=logger)
+            return prompt or self.system_prompt
+
         is_poster = self.product_type in (
             ProductType.POSTER_A4,
             ProductType.POSTER_A4_HORIZONTAL,
@@ -394,16 +399,16 @@ PRODUCT_REGISTRY: Dict[ProductType, ProductProfile] = {
     ),
     ProductType.MUG: ProductProfile(
         product_type=ProductType.MUG,
-        display_name="Caneca Cerâmica (Panorâmica)",
-        target_dimensions_mm=(200.0, 95.0),
+        display_name="Caneca Cerâmica Sublimação (22x9.5cm @ 300 DPI)",
+        target_dimensions_mm=(220.0, 95.0),
         target_dpi=300,
-        aspect_ratio="~2.1:1 (Panoramic Wrap)",
+        aspect_ratio="2.316:1 (Caneca 22x9.5cm Panorâmica)",
         default_orientation="horizontal",
         system_prompt=(
-            "Upscale and enhance this panoramic wrap artwork for ceramic mug sublimation printing (200x95mm at 300 DPI). "
-            "Preserve the exact aspect ratio without any anamorphic stretching or edge warping. "
-            "Boost color vibrancy and contrast appropriately for heat sublimation, sharpen logos and illustrations, and remove pixelation cleanly. "
-            "Generate in maximum native resolution."
+            "Upscale, expand, and enhance this panoramic wrap artwork for ceramic mug sublimation printing (220x95mm at 300 DPI, 2598x1122 pixels). "
+            "Preserve the exact 22:9.5 panoramic aspect ratio without any anamorphic stretching or edge warping. "
+            "Boost color vibrancy and contrast appropriately for heat sublimation, sharpen fine details and text, remove noise cleanly, "
+            "and generate an ultra-high-definition 300 DPI panoramic wrap."
         ),
         input_subpath="mug",
         output_subpath="mug",
@@ -428,7 +433,7 @@ class AppSettings(BaseModel):
     """Configurações globais da aplicação e runtime do Playwright."""
     base_dir: Path = Field(default_factory=lambda: Path(__file__).resolve().parent.parent)
     gemini_url: str = "https://gemini.google.com/app"
-    headless: bool = False
+    headless: bool = True  # Prioriza sempre a execução em modo oculto (headless)
     timeout_ms: int = 180000  # 3 minutos por imagem
     max_retries: int = 3
     delay_between_files_sec: float = 4.0

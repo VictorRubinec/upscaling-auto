@@ -39,6 +39,26 @@ def parse_arguments() -> argparse.Namespace:
         metavar="NOME",
         help="Cria um modelo JSON de ficha técnica de carta One Piece em data/input/onepiece_card/"
     )
+    group.add_argument(
+        "--create-mug-template",
+        type=str,
+        metavar="NOME",
+        help="Cria um modelo JSON de arte de caneca em data/input/mug/"
+    )
+    parser.add_argument(
+        "--mug-mode",
+        type=str,
+        choices=["compose", "ai", "hybrid"],
+        default="compose",
+        help="Modo de processamento de canecas: compose (composição local Pillow offline), ai (geração de arte via Gemini), hybrid (upscale de fotos + composição)"
+    )
+    parser.add_argument(
+        "--mug-layout",
+        type=str,
+        choices=["photo_and_text", "duo_sides", "trio_photos", "panoramic_single"],
+        default="photo_and_text",
+        help="Layout do template de caneca (photo_and_text, duo_sides, trio_photos, panoramic_single)"
+    )
     parser.add_argument(
         "--orientation", "-o",
         type=str,
@@ -91,6 +111,12 @@ def parse_arguments() -> argparse.Namespace:
         help="Aplica a expansão de sangria industrial diretamente sem navegador (ideal para fundos já nítidos)"
     )
     parser.add_argument(
+        "--sublimation-prep",
+        action="store_true",
+        default=False,
+        help="Aplica compensação cromática para sublimação térmica e gera prévias comerciais para artes de caneca"
+    )
+    parser.add_argument(
         "--pdf",
         type=str,
         nargs="?",
@@ -126,8 +152,14 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--headless",
         action="store_true",
-        default=False,
-        help="Executa o navegador em modo oculto/headless (Padrão: False para monitoramento visual)"
+        default=True,
+        help="Executa o navegador em modo oculto/headless (Padrão: True para máxima velocidade e sem janelas)"
+    )
+    parser.add_argument(
+        "--visible", "--no-headless",
+        dest="headless",
+        action="store_false",
+        help="Abre o navegador visível na tela para monitoramento manual"
     )
     parser.add_argument(
         "--timeout",
@@ -292,6 +324,72 @@ def main() -> None:
         logger.info("=" * 65)
         return
 
+    # Criação de template de caneca
+    if args.create_mug_template:
+        from src.mug import MugManager, MugLayoutType
+        layout_enum = MugLayoutType(args.mug_layout)
+        json_path = MugManager.create_template(settings.data_dir, name=args.create_mug_template, layout=layout_enum)
+        mug_dir = MugManager.get_mug_input_dir(settings.data_dir)
+        logger.info("=" * 65)
+        logger.info(f"☕ Template de Caneca (22x9.5cm @ 300 DPI) criado com sucesso!")
+        logger.info(f"📄 Arquivo de parâmetros: {json_path}")
+        logger.info(f"🖼️ Deposite as fotos na pasta: {mug_dir}")
+        logger.info(f"🚀 Para gerar a arte localmente (instantâneo): python main.py -p MUG --mug-mode compose")
+        logger.info(f"✨ Para gerar a arte via IA (Gemini): python main.py -p MUG --mug-mode ai")
+        logger.info("=" * 65)
+        return
+
+    # Modo de Tratamento para Sublimação Térmica de Canecas (sem navegador)
+    if args.sublimation_prep:
+        from PIL import Image
+        from src.mug.sublimation import SublimationEngine
+        mug_prof = PRODUCT_REGISTRY[ProductType.MUG]
+        mug_out_dir = mug_prof.get_output_dir(settings.data_dir)
+        logger.info("=" * 65)
+        logger.info("☕ Modo de Tratamento Cromático para Sublimação Térmica em Canecas")
+        logger.info("=" * 65)
+
+        targets = []
+        if args.image:
+            img_p = Path(args.image)
+            if img_p.exists():
+                targets.append(img_p)
+            elif (mug_out_dir / img_p.name).exists():
+                targets.append(mug_out_dir / img_p.name)
+            else:
+                logger.error(f"❌ Imagem não encontrada: {args.image}")
+                sys.exit(1)
+        else:
+            targets = [
+                f for f in sorted(mug_out_dir.glob("*.png"))
+                if not any(k in f.name for k in ("_proof", "_impressao_sublimacao", "_preview_cliente", "_mockup_caneca"))
+            ]
+
+        if not targets:
+            logger.info(f"Nenhuma arte base de caneca encontrada em {mug_out_dir}.")
+            return
+
+        treated_count = 0
+        for tf in targets:
+            try:
+                with Image.open(tf) as img:
+                    clean_id = tf.stem.replace("_22x9.5cm_300dpi", "").replace("_upscaled_300dpi", "")
+                    res = SublimationEngine.process_mug_outputs(
+                        source_image=img,
+                        base_name=clean_id,
+                        output_dir=mug_out_dir
+                    )
+                    logger.info(f"✅ Arte '{tf.name}' tratada com sucesso:")
+                    logger.info(f"   🖨️ Impressão Sublimática: {res['print_sublimation'].name} (2598x1122 px @ 300 DPI)")
+                    logger.info(f"   📱 Prévia Cliente:        {res['client_preview'].name}")
+                    treated_count += 1
+            except Exception as e:
+                logger.error(f"❌ Erro ao tratar '{tf.name}': {e}")
+                logger.debug(traceback.format_exc())
+
+        logger.info(f"\n🎉 Total de {treated_count} arte(s) tratada(s) para sublimação com sucesso!")
+        return
+
     if args.card_back:
         args.image = args.card_back
         args.product = ProductType.CARD_BACK.value
@@ -310,7 +408,7 @@ def main() -> None:
                 args.product = ProductType.TRADING_CARD.value
 
     if not args.all and not args.product and not single_image_path:
-        logger.error("❌ Parâmetro ausente: informe --product (-p), --all (-a), --image (-i), --card-back, --create-card-template ou --create-opcg-template.")
+        logger.error("❌ Parâmetro ausente: informe --product (-p), --all (-a), --image (-i), --card-back, --create-card-template, --create-opcg-template ou --create-mug-template.")
         sys.exit(1)
 
     # Identifica os perfis selecionados
@@ -398,6 +496,78 @@ def main() -> None:
         logger.info(f"\n🎉 Total de {bleed_count} fundo(s) processado(s) com sangria industrial!")
         return
 
+    # Modo de Composição Direta de Canecas (Pillow 22x9.5cm @ 300 DPI, sem navegador)
+    if not args.all and len(selected_profiles) == 1 and selected_profiles[0].product_type == ProductType.MUG and args.mug_mode == "compose":
+        logger.info("=" * 65)
+        logger.info("☕ Modo Composição Direta de Canecas (Pillow 22x9.5cm @ 300 DPI)")
+        logger.info("=" * 65)
+        from src.mug import MugManager, MugArtConfig, MugLayoutType
+
+        mug_prof = PRODUCT_REGISTRY[ProductType.MUG]
+        mug_in_dir = mug_prof.get_input_dir(settings.data_dir)
+        mug_out_dir = mug_prof.get_output_dir(settings.data_dir)
+
+        if single_image_path:
+            image_files = [single_image_path]
+            json_configs = [single_image_path.with_suffix(".json")] if single_image_path.with_suffix(".json").exists() else []
+        else:
+            json_configs = sorted(mug_in_dir.glob("*.json"))
+            image_files = sorted(
+                f for f in mug_in_dir.iterdir()
+                if f.is_file() and f.suffix.lower() in settings.supported_extensions and not f.name.startswith(".")
+            )
+
+        processed = 0
+        handled_images = set()
+
+        for j_file in json_configs:
+            try:
+                cfg = MugArtConfig.from_file(j_file)
+                for ph in cfg.photos:
+                    handled_images.add(ph.file)
+                out_name = f"{j_file.stem}_22x9.5cm_300dpi.png"
+                out_p = mug_out_dir / out_name
+                out_file, proof_p = MugManager.process_composition(
+                    config=cfg,
+                    output_file=out_p,
+                    base_dir=j_file.parent,
+                    generate_proof=True
+                )
+                logger.info(f"✅ Arte gerada a partir de '{j_file.name}':")
+                logger.info(f"   Arte final: {out_file.name} (2598x1122 px / 22x9.5cm @ 300 DPI)")
+                if proof_p:
+                    logger.info(f"   Prova com corte: {proof_p.name}")
+                processed += 1
+            except Exception as e:
+                logger.error(f"❌ Erro ao processar config '{j_file.name}': {e}")
+                logger.debug(traceback.format_exc())
+
+        for img_f in image_files:
+            if img_f.name in handled_images:
+                continue
+            if (img_f.parent / f"{img_f.stem}.json").exists():
+                continue
+            try:
+                cfg = MugManager.load_config_for_image_or_dir(img_f)
+                out_name = f"{img_f.stem}_caneca_22x9.5cm_300dpi.png"
+                out_p = mug_out_dir / out_name
+                out_file, proof_p = MugManager.process_composition(
+                    config=cfg,
+                    output_file=out_p,
+                    base_dir=img_f.parent,
+                    generate_proof=True
+                )
+                logger.info(f"✅ Arte gerada a partir da imagem '{img_f.name}':")
+                logger.info(f"   Arte final: {out_file.name} (2598x1122 px / 22x9.5cm @ 300 DPI)")
+                if proof_p:
+                    logger.info(f"   Prova com corte: {proof_p.name}")
+                processed += 1
+            except Exception as e:
+                logger.error(f"❌ Erro ao processar imagem '{img_f.name}': {e}")
+
+        logger.info(f"\n🎉 Total de {processed} arte(s) de caneca gerada(s) com sucesso nas medidas 22x9.5cm @ 300 DPI!")
+        return
+
     # Verificação prévia de pendências
     total_pending_all = 0
     if single_image_path:
@@ -447,31 +617,35 @@ def main() -> None:
             temp_dl_dir.mkdir(parents=True, exist_ok=True)
 
             logger.info(f"Iniciando Google Chrome com perfil isolado em: {settings.user_data_dir.resolve()}")
+            launch_kwargs = {
+                "user_data_dir": str(settings.user_data_dir.resolve()),
+                "headless": settings.headless,
+                "accept_downloads": True,
+                "downloads_path": str(temp_dl_dir.resolve()),
+                "permissions": ["clipboard-read", "clipboard-write"],
+            }
+            if settings.headless:
+                launch_kwargs["viewport"] = {"width": 1920, "height": 1080}
+                launch_kwargs["args"] = [
+                    "--window-size=1920,1080",
+                    "--disable-blink-features=AutomationControlled",
+                ]
+            else:
+                launch_kwargs["no_viewport"] = True
+                launch_kwargs["args"] = [
+                    "--start-maximized",
+                    "--disable-blink-features=AutomationControlled",
+                ]
+
             try:
                 context = p.chromium.launch_persistent_context(
-                    user_data_dir=str(settings.user_data_dir.resolve()),
                     channel="chrome",
-                    headless=settings.headless,
-                    accept_downloads=True,
-                    downloads_path=str(temp_dl_dir.resolve()),
-                    args=[
-                        "--start-maximized",
-                        "--disable-blink-features=AutomationControlled"
-                    ],
-                    no_viewport=True,
+                    **launch_kwargs
                 )
             except Exception as e:
                 logger.warning(f"Chrome nativo indisponível ({e}). Usando Chromium padrão...")
                 context = p.chromium.launch_persistent_context(
-                    user_data_dir=str(settings.user_data_dir.resolve()),
-                    headless=settings.headless,
-                    accept_downloads=True,
-                    downloads_path=str(temp_dl_dir.resolve()),
-                    args=[
-                        "--start-maximized",
-                        "--disable-blink-features=AutomationControlled"
-                    ],
-                    no_viewport=True,
+                    **launch_kwargs
                 )
             page = context.pages[0] if context.pages else context.new_page()
             page.goto(settings.gemini_url, wait_until="domcontentloaded")

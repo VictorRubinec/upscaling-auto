@@ -20,6 +20,8 @@ class GeminiSelectors:
 
     # Botão de anexar imagem/arquivo (+ ou ícone de clipe/upload)
     ATTACH_BUTTON = (
+        "button[aria-label*='Envio e ferramentas' i], "
+        "button[aria-label*='ferramentas' i], "
         "button[aria-label*='upload' i], "
         "button[aria-label*='Adicionar' i], "
         "button[aria-label*='Inserir' i], "

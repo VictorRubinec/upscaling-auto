@@ -178,23 +178,28 @@ class GeminiUpscalerEngine:
 
             self.logger.warning("⚠️ Ctrl+V executado, mas a miniatura não apareceu. Acionando fallback...")
 
-        # 2. Tentativa via Input de Arquivo nativo (input[type='file'])
+        # 2. Tentativa via Botão de Anexo (+) -> Revela input[type='file'] e anexa diretamente
         try:
+            attach_btn = self.page.locator(GeminiSelectors.ATTACH_BUTTON).first
+            if attach_btn.is_visible():
+                self.logger.info("📎 Acionando botão de anexo (+) na interface...")
+                attach_btn.click()
+                self.page.wait_for_timeout(400)
+
             file_inputs = self.page.locator(GeminiSelectors.FILE_INPUT)
             if file_inputs.count() > 0:
-                self.logger.info("📁 Enviando arquivo via seletor de arquivo DOM...")
+                self.logger.info("📁 Enviando arquivo via seletor de arquivo DOM (input[type='file'])...")
                 file_inputs.first.set_input_files(abs_path)
                 if self._wait_for_attachment(timeout_sec=7.0):
                     self.logger.info("✅ Miniatura do anexo confirmada via seletor de arquivo.")
                     return
         except Exception as e:
-            self.logger.debug(f"Fallback via input de arquivo falhou: {e}")
+            self.logger.debug(f"Tentativa via botão de anexo e input falhou: {e}")
 
-        # 3. Tentativa via Botão de Anexo (+) -> File Chooser
+        # 3. Tentativa via File Chooser formal do Playwright
         try:
             attach_btn = self.page.locator(GeminiSelectors.ATTACH_BUTTON).first
             if attach_btn.is_visible():
-                self.logger.info("📎 Acionando botão de anexo (+) na interface...")
                 with self.page.expect_file_chooser(timeout=5000) as fc_info:
                     attach_btn.click()
                     self.page.wait_for_timeout(300)
@@ -207,7 +212,7 @@ class GeminiUpscalerEngine:
                     self.logger.info("✅ Miniatura confirmada após seleção de arquivo.")
                     return
         except Exception as e:
-            self.logger.debug(f"Fallback via botão de anexo falhou: {e}")
+            self.logger.debug(f"Fallback via file chooser falhou: {e}")
 
         # Checagem final
         if self._is_attachment_present():
@@ -676,6 +681,26 @@ class GeminiUpscalerEngine:
                         f"🎯 Calibração dimensional aplicada ({self.settings.fit_mode.upper()}): "
                         f"{target_px[0]}x{target_px[1]}px ({eff_mm[0]}x{eff_mm[1]}mm @ {profile.target_dpi} DPI)"
                     )
+
+                # Tratamento de Cor e Pacote de Sublimação específico para Canecas (MUG)
+                if profile.product_type == ProductType.MUG:
+                    try:
+                        from PIL import Image
+                        from src.mug.sublimation import SublimationEngine
+                        with Image.open(saved_path) as src_mug_img:
+                            clean_stem = saved_path.stem.replace(profile.output_suffix, "")
+                            sublim_res = SublimationEngine.process_mug_outputs(
+                                source_image=src_mug_img,
+                                base_name=clean_stem,
+                                output_dir=saved_path.parent
+                            )
+                        self.logger.info(
+                            f"☕ [Caneca Sublimação] Tratamento prévio concluído com sucesso:\n"
+                            f"   🖨️ Impressão Sublimática: {sublim_res['print_sublimation'].name}\n"
+                            f"   📱 Prévia para Cliente:    {sublim_res['client_preview'].name}"
+                        )
+                    except Exception as mug_err:
+                        self.logger.warning(f"⚠️ Aviso ao gerar pacote de sublimação para caneca: {mug_err}")
 
                 # 7. Delay configurado entre arquivos para respeito de taxa
                 time.sleep(self.settings.delay_between_files_sec)
